@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build backend image
-        run: docker build -t backend-image ./backend
+        run: docker build -t backend-image -f backend/Dockerfile .
 
       - name: Scan backend image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -27,8 +27,8 @@ jobs:
           exit-code: 0
           severity: CRITICAL,HIGH
 
-      - name: Build frontend image
-        run: docker build -t frontend-image ./frontend
+      - name: Build backend image
+        run: docker build -t backend-image -f backend/Dockerfile .
 
       - name: Scan frontend image with Trivy
         uses: aquasecurity/trivy-action@master
