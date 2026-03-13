@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
-      - name: Send Slack Notification
-        uses: slackapi/slack-github-action@v1.26.0
+      - name: Create GitHub Issue on Failure
+        uses: actions/github-script@v7
         with:
-          payload: |
-            {
-              "text": "❌ Pipeline FAILED: *${{ github.event.workflow_run.name }}*\nRepo: ${{ github.repository }}\nBranch: ${{ github.event.workflow_run.head_branch }}\nURL: ${{ github.event.workflow_run.html_url }}"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Pipeline Failed: ${context.payload.workflow_run.name}`,
+              body: `## Pipeline Failure\n\n**Workflow:** ${context.payload.workflow_run.name}\n**Branch:** ${context.payload.workflow_run.head_branch}\n**URL:** ${context.payload.workflow_run.html_url}`
+            })
