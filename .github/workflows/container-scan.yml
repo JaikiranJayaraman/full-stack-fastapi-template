@@ -1,0 +1,39 @@
+name: Container Scan
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  container-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t backend-image ./backend
+
+      - name: Scan backend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: backend-image
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH
+
+      - name: Build frontend image
+        run: docker build -t frontend-image ./frontend
+
+      - name: Scan frontend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: frontend-image
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH
