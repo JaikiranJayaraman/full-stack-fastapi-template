@@ -1,74 +1,79 @@
 # CI/CD Pipeline Documentation
 
 ## Overview
-This document describes the CI/CD pipeline setup for the full-stack-fastapi-template project.
+This document describes the CI/CD pipeline setup for the full-stack-fastapi-template project (FastAPI backend + React frontend).
 
 ## Pipeline Architecture
 ```
 Push/PR → Tests → SonarQube → Deploy
-                ↓
-        Dependency Scan
-                ↓
-        Container Scan
-                ↓
-        Slack Notification (on failure)
+        → Dependency Scan
+        → Container Scan
+        → Notify on Failure (GitHub Issue)
 ```
 
 ## Workflows
 
-### 1. test-backend.yml
+### 1. test-backend.yml (existing)
 - Triggers on push to master and pull requests
 - Sets up Python 3.10 and uv
 - Starts DB and mailcatcher via Docker
-- Runs migrations
-- Runs tests with coverage
+- Runs migrations and tests with coverage
 - Fails if coverage is below 90%
 
-### 2. deploy-staging.yml
+### 2. deploy-staging.yml (modified)
 - Triggers on push to master
-- Requires test-backend to pass first (needs gate)
+- Requires test-backend to pass first (needs gate added)
 - Builds and deploys Docker images to staging server
+- Requires self-hosted runner with staging label
 
-### 3. sonarqube.yml
+### 3. pre-commit.yml (existing)
+- Triggers on pull requests
+- Runs Ruff (Python linting)
+- Runs Prettier/ESLint (frontend formatting)
+- Auto-commits formatting fixes
+
+### 4. sonarqube.yml (new)
 - Triggers on push to master and pull requests
-- Runs after tests pass
 - Scans Python and TypeScript code
-- Enforces quality gate
+- Reports Security, Reliability, Maintainability
+- Quality Gate enforced on every push
+- SonarQube running on EC2: http://44.210.118.14:9000
 
-### 4. dependency-scan.yml
+### 5. dependency-scan.yml (new)
 - Triggers on push to master and pull requests
 - Scans Python dependencies using pip-audit
 - Scans frontend dependencies using npm audit
 - Reports HIGH and CRITICAL vulnerabilities
 
-### 5. container-scan.yml
+### 6. container-scan.yml (new)
 - Triggers on push to master and pull requests
 - Builds backend and frontend Docker images
 - Scans images using Trivy
 - Reports HIGH and CRITICAL vulnerabilities
 
-### 6. notify.yml
-- Triggers when any pipeline fails
-- Sends Slack notification with failure details
-- Includes repo, branch, and workflow link
+### 7. notify.yml (new)
+- Triggers when Test Backend, Dependency Scan, or Container Scan fails
+- Creates a GitHub Issue with failure details
+- Includes workflow name, branch, and link to failed run
 
 ## GitHub Secrets Required
 | Secret | Description |
 |--------|-------------|
 | SONAR_TOKEN | SonarQube authentication token |
-| SONAR_HOST_URL | SonarQube server URL |
-| SLACK_WEBHOOK_URL | Slack incoming webhook URL |
+| SONAR_HOST_URL | SonarQube server URL (http://44.210.118.14:9000) |
 | DOMAIN_STAGING | Staging domain name |
 | STACK_NAME_STAGING | Docker stack name for staging |
-| SECRET_KEY | Django secret key |
+| SECRET_KEY | FastAPI secret key |
 | FIRST_SUPERUSER | Admin email |
 | FIRST_SUPERUSER_PASSWORD | Admin password |
 | POSTGRES_PASSWORD | Database password |
 
 ## SonarQube Setup
-1. SonarQube runs on http://44.210.118.14:9000
-2. Project key: full-stack-fastapi
-3. Quality gate enforced on every PR
+1. SonarQube Community Edition running via Docker on EC2
+2. URL: http://44.210.118.14:9000
+3. Project key: full-stack-fastapi
+4. Analyzes: backend/app + frontend/src
+5. Quality Gate: Passed ✅
 
 ## Local Development
 ```bash
@@ -82,6 +87,6 @@ cd backend && uv run bash scripts/tests-start.sh
 pip install pip-audit && pip-audit
 
 # Run container scan
-docker build -t backend-image ./backend
+docker build -t backend-image -f backend/Dockerfile .
 trivy image backend-image
 ```
